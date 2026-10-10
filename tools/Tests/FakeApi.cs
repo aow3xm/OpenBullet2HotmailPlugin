@@ -6,7 +6,7 @@ namespace Hotmail.Tests;
 /// <summary>Loopback fake of the Microsoft token endpoint (and mail API): records requests and plays scripted responses.</summary>
 public sealed class FakeApi : IDisposable
 {
-    public record Request(string Path, string Method, string RawHeaders, IReadOnlyDictionary<string, string> Form);
+    public record Request(string Path, string Url, string Method, string RawHeaders, IReadOnlyDictionary<string, string> Form);
 
     private const string DefaultBody = "{\"access_token\":\"stub-access-token\",\"expires_in\":3600}";
 
@@ -19,7 +19,7 @@ public sealed class FakeApi : IDisposable
     public int Port { get; }
     public IReadOnlyList<Request> Requests { get { lock (_lock) { return _requests.ToList(); } } }
 
-    /// <summary>Script to run for the next request. Takes the request path (no query), returns (status, body).</summary>
+    /// <summary>Script to run for the next request. Takes the request URL (path and query), returns (status, body).</summary>
     public Func<string, (int Status, string Body)>? Handler { get; set; }
 
     public FakeApi()
@@ -69,7 +69,7 @@ public sealed class FakeApi : IDisposable
         }
         lock (_lock)
         {
-            _requests.Add(new Request(request.Url!.AbsolutePath, request.HttpMethod, rawHeaders, ParseForm(formBody)));
+            _requests.Add(new Request(request.Url!.AbsolutePath, request.Url.PathAndQuery, request.HttpMethod, rawHeaders, ParseForm(formBody)));
         }
         _signal.Release();
 
@@ -79,7 +79,7 @@ public sealed class FakeApi : IDisposable
         {
             if (Handler is { } handler)
             {
-                (status, body) = handler(request.Url.AbsolutePath);
+                (status, body) = handler(request.Url.PathAndQuery);
             }
             else
             {

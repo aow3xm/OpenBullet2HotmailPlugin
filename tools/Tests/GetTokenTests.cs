@@ -9,6 +9,7 @@ namespace Hotmail.Tests;
 // TokenEndpointBase and TokenCache are process-wide statics, so every test redirects them
 // at its own stub and clears the cache first. Keeping all tests in this one class also makes
 // xunit run them sequentially, so no test can steal another's endpoint or cached token.
+[Collection("HotmailSerial")]
 public class GetTokenTests
 {
     private const string RestScope = "https://outlook.office.com/Mail.ReadWrite";
