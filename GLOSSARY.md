@@ -41,7 +41,7 @@ Chuỗi nhận bởi các block thao tác thư: hoặc `id` thô, hoặc nguyên
 _Avoid_: message param, id
 
 **Tệp đính kèm** (Attachment):
-Tệp gắn với thư, thuộc một trong ba loại: `fileAttachment` (bytes thô — Graph tải qua `/$value`, Rest v2.0 qua `ContentBytes` base64 vì tài liệu v2.0 không ghi nhận `/$value`), `itemAttachment` (MIME của thư/contact/event được đính kèm — tải qua `/$value`, được tài liệu ghi nhận trên Graph v1.0), `referenceAttachment` (link cloud, không tải được nội dung — Graph trả HTTP 405 cho `/$value`).
+Tệp gắn với thư, thuộc một trong ba loại: `fileAttachment` (bytes thô — Graph ưu tiên giải mã `contentBytes` base64 trong detail, chỉ tải qua `/$value` khi thiếu field này, Rest v2.0 qua `ContentBytes` base64 vì tài liệu v2.0 không ghi nhận `/$value`), `itemAttachment` (MIME của thư/contact/event được đính kèm — tải qua `/$value`, được tài liệu ghi nhận trên Graph v1.0), `referenceAttachment` (link cloud, không tải được nội dung — Graph trả HTTP 405 cho `/$value`).
 _Avoid_: attachment file, tệp gửi kèm
 
 **Xoá mềm** (Trash):

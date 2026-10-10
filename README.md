@@ -43,7 +43,7 @@ ZIP chứa `PluginTemplate.dll` ngay ở gốc archive, không cần manifest. U
 
 ## Các block trong nhóm Hotmail
 
-Cả sáu block nằm trong namespace `RuriLib.Blocks.Hotmail`, nhóm `Hotmail` khi chọn block. Mọi request của block (kể cả đổi token) đi qua proxy của bot theo pattern `data.UseProxy ? data.Proxy : null`, timeout 30 s mỗi request. Response không phải 2xx làm block ném `HttpRequestException` nêu flavor/operation/status — host chuyển thành run status để config phân nhánh. Token cache nằm trong tiến trình, khoá theo (flavor, clientId, refreshToken); nhiều block trong cùng một run dùng chung access token, không đổi lại mỗi lượt.
+Cả sáu block nằm trong namespace `RuriLib.Blocks.Hotmail`, nhóm `Hotmail` khi chọn block. Mọi request của block (kể cả đổi token) đi qua proxy của bot theo pattern `data.UseProxy ? data.Proxy : null`; toàn bộ request mail API trong một lần gọi block dùng chung timeout 30 s, bước đổi token có timeout 30 s riêng. Response không phải 2xx làm block ném `HttpRequestException` nêu flavor/operation/status — host chuyển thành run status để config phân nhánh. Token cache nằm trong tiến trình, khoá theo (flavor, clientId, refreshToken); nhiều block trong cùng một run dùng chung access token, không đổi lại mỗi lượt.
 
 ### Dòng input
 
@@ -101,7 +101,7 @@ Tham số: `api`, `message`. Trả về `Dictionary<string,string>`: các field 
 
 Tham số: `api`, `message`, `attachment` (ID tệp đính kèm thô hoặc JSON row chứa `id`). Trả về nội dung tệp dạng `byte[]`. Đường dẫn tải theo loại tệp và flavor:
 
-- `fileAttachment`: Graph tải nội dung thô qua `/{id}/$value`; Rest v2.0 đọc field `ContentBytes` trong detail (base64, trần khoảng 4 MB; tài liệu v2.0 không ghi nhận `/$value`).
+- `fileAttachment`: Graph ưu tiên giải mã field `contentBytes` base64 trong detail, chỉ tải nội dung thô qua `/{id}/$value` khi thiếu field này; Rest v2.0 đọc field `ContentBytes` trong detail (base64, trần khoảng 4 MB; tài liệu v2.0 không ghi nhận `/$value`).
 - `itemAttachment`: MIME của thư/tệp đính kèm sự kiện kèm theo, tải qua `/$value` (Graph v1.0 có ghi nhận).
 - `referenceAttachment`: chỉ là liên kết cloud, không tải được nội dung (Graph trả HTTP 405 cho `/$value`); block ném lỗi rõ ràng thay vì trả về dữ liệu rác.
 
