@@ -1,6 +1,6 @@
 # Mỗi block chỉ trả về một biến; giá trị phức tạp đóng gói trong List/Dictionary
 
-Status: proposed (quy ước thiết kế — ví dụ block dưới đây chưa hiện thực trong code)
+Status: accepted (quy ước — cả 6 block của plugin trả đúng một biến theo quy ước; kiểm chứng transpile + compile với chính host)
 
 Host map kiểu trả về của block thành đúng một biến LoliCode, và chỉ chấp nhận các kiểu số nguyên (`int`/`long` → Int), số thực (`double`/`float` → Float), bool, `string` (→ String), byte[], `List<string>`, `Dictionary<string,string>`; `void` và `Task` không map được kiểu nào (block không trả biến), kèm biến thể `Task<T>` theo từng kiểu trên (map `_variableTypes` của `RuriLib.Helpers.Blocks.DescriptorsRepository`; sinh câu gán trong `AutoBlockInstance.CreateExecutionStatements`) — đã kiểm chứng với mã nguồn host openbullet/OpenBullet2. Cú pháp nhiều output `=> VAR @a, @b` không tạo hai biến: nó tạo một biến tên `ab`.
 

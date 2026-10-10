@@ -1,6 +1,6 @@
 # Dùng HTTP mail API (Graph hoặc Outlook REST v2.0) thay vì IMAP
 
-Status: proposed (thiết kế — chưa hiện thực trong code)
+Status: accepted (hiện thực: toàn bộ HTTP của plugin — kể cả đổi token — gọi qua RuriLib với mẫu `data.UseProxy ? data.Proxy : null`, không tạo HttpClient riêng, không tham chiếu MailKit/MimeKit)
 
 Ràng buộc đo được, không phải sở thích:
 
