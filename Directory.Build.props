@@ -1,0 +1,13 @@
+<Project>
+
+  <!--
+    This OpenBullet 2 build ships a RuriLib that is not (yet) on NuGet, so the plugin
+    compiles against the assemblies of a local install. Override the path with an
+    env var (OB2_DIR=/path/to/openbullet2) or -p:Ob2Dir=/path/to/openbullet2.
+  -->
+  <PropertyGroup>
+    <Ob2Dir Condition="'$(Ob2Dir)' == '' and '$(OB2_DIR)' != ''">$(OB2_DIR)</Ob2Dir>
+    <Ob2Dir Condition="'$(Ob2Dir)' == ''">/home/aow3xm/Documents/openbullet2</Ob2Dir>
+  </PropertyGroup>
+
+</Project>
