@@ -45,11 +45,11 @@ Tệp gắn với thư, thuộc một trong ba loại: `fileAttachment` (bytes t
 _Avoid_: attachment file, tệp gửi kèm
 
 **Xoá mềm** (Trash):
-Chuyển thư vào Deleted Items, còn khôi phục được; là hành vi mặc định của block xoá thư (tên dự kiến `HotmailDeleteMessage`, hiển thị "Delete Message" — chưa hiện thực), vì trên tài khoản consumer `DELETE` là xoá hẳn.
+Chuyển thư vào Deleted Items, còn khôi phục được; là hành vi mặc định của block xoá thư (tên dự kiến `HotmailDeleteMessage`, hiển thị "Delete Message" — chưa hiện thực), vì lần đo 2026-10-10 trên REST v2.0 cho thấy `DELETE` xoá hẳn thư nháp, không rơi vào Deleted Items.
 _Avoid_: xoá tạm, delete
 
 **Xoá hẳn** (Permanent delete):
-Xoá thư không khôi phục được. Hai đường: `DELETE /me/messages/{id}` trực tiếp (trên tài khoản consumer đây là xoá hẳn), hoặc bật `Permanent = true` để block chuyển thư vào Deleted Items rồi xoá luôn khỏi đó.
+Xoá thư không khôi phục được. Hai đường: `DELETE /me/messages/{id}` trực tiếp trên REST v2.0 (lần đo 2026-10-10 cho thấy xoá hẳn, chưa có tài liệu xác nhận), hoặc trên Graph dùng `POST /me/messages/{id}/permanentDelete` (Microsoft ghi nhận riêng, thư vào purges); trên Graph tài liệu không nói gì về hành vi của `DELETE`. Ngoài ra block xoá thư có cờ `Permanent = true` để chuyển thư vào Deleted Items rồi xoá luôn khỏi đó.
 _Avoid_: xoá vĩnh viễn, hard delete
 
 **Token cache** (— chưa hiện thực):
