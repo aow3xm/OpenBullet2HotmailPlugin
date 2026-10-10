@@ -11,6 +11,12 @@
     </Reference>
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- tools/ holds the test harness, not plugin code -->
+    <Compile Remove="tools/**" />
+    <InternalsVisibleTo Include="Hotmail.Tests" />
+  </ItemGroup>
+
   <Target Name="ValidateOb2Dir" BeforeTargets="ResolveAssemblyReferences">
     <Error Condition="'$(Ob2Dir)' == '' or !Exists('$(Ob2Dir)/libraries/RuriLib.dll')"
            Text="RuriLib.dll was not found. Set -p:Ob2Dir=/path/to/OpenBullet2 or OB2_DIR to the OpenBullet2 directory containing libraries/RuriLib.dll." />

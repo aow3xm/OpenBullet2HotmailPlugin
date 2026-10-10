@@ -1,6 +1,6 @@
-# OpenBullet2 Plugin Template
+# OpenBullet2 Hotmail Plugin
 
-Template tối thiểu với block `Greeting` trong nhóm `PluginTemplate`. Không chứa logic temp-mail.
+Plugin OpenBullet2 với block `Get Token` trong nhóm `Hotmail`: đổi refresh token trong dòng input (`email:password:refreshToken:clientId`) lấy access token. Các block đọc/xoá thư chưa hiện thực.
 
 ## Yêu cầu
 
@@ -44,16 +44,10 @@ ZIP chứa `PluginTemplate.dll` ngay ở gốc archive, không cần manifest. U
 ## Dùng trong LoliCode
 
 ```lolicode
-BLOCK:TemplateGreeting
-  name = "OpenBullet2"
-  => VAR @greeting
+BLOCK:HotmailGetToken
+  api = "Rest"
+  => VAR @accessToken
 ENDBLOCK
 ```
 
-Biến `greeting` nhận `Hello, OpenBullet2!`. Tham số `name` mặc định là `World` và hỗ trợ nội suy qua `[Interpolated]`.
-
-## Đổi tên cho plugin riêng
-
-- Đổi `PluginTemplate.csproj` thành `MyPlugin.csproj`: assembly mặc định sẽ là `MyPlugin.dll`. Hoặc giữ tên project và đặt `<AssemblyName>MyPlugin</AssemblyName>` trong `.csproj`. Cập nhật tên project/DLL trong các lệnh build, copy và ZIP.
-- Trong `Blocks/TemplateBlocks.cs`, đổi namespace thành `RuriLib.Blocks.MyPlugin`: host lấy tên nhóm hiển thị `MyPlugin` từ namespace, không phải nhãn `[BlockCategory]`. Cập nhật nhãn và mô tả `[BlockCategory]` cho plugin riêng. Giữ tiền tố `RuriLib.Blocks.` để block xuất hiện trong bộ chọn block của host.
-- Đổi phương thức `TemplateGreeting` thành ID duy nhất trên toàn bộ các block đã cài, ví dụ `MyPluginGreeting`, rồi cập nhật `BLOCK:TemplateGreeting` trong LoliCode. Tên phương thức là ID mặc định của `[Block]`; `name = "Greeting"` chỉ là tên hiển thị, không phải ID.
+Biến `accessToken` nhận access token đổi từ refresh token trong dòng input `email:password:refreshToken:clientId`. Tham số `api` chọn API flavor (`Rest` mặc định hoặc `Graph`).

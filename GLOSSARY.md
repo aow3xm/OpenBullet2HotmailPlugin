@@ -1,6 +1,6 @@
 # OpenBullet2 Hotmail Plugin
 
-Plugin OpenBullet2 (dự kiến) đọc thư, tải tệp đính kèm và xoá thư trên tài khoản Microsoft consumer bằng refresh token có sẵn trong dòng input. Hiện repo mới là template plugin (block `Greeting`) — các thuật ngữ dưới đây định nghĩa thiết kế cho các block sẽ hiện thực, chưa có trong code.
+Plugin OpenBullet2 đọc thư, tải tệp đính kèm và xoá thư trên tài khoản Microsoft consumer bằng refresh token có sẵn trong dòng input. Block `Get Token` (id `HotmailGetToken`, namespace `RuriLib.Blocks.Hotmail`) đã có trong code; `HotmailListMessages` và `HotmailDeleteMessage` chưa hiện thực — các thuật ngữ dưới đây định nghĩa thiết kế cho các block đó.
 
 ## Language
 
