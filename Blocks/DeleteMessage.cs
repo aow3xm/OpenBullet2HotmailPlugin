@@ -75,6 +75,9 @@ public static class HotmailDeleteBlocks
         // message changes mailbox (documented for Graph, measured on Rest v2.0 2026-10-10);
         // the old id would 404 here. Two requests total on Rest permanent.
         var deletePath = $"/me/messages/{newId}";
+        // The DELETE logs only its own path+status; on failure nothing reports the id the
+        // move returned, and the old id 404s, so this line is the caller's only record.
+        data.Logger.Log($"{flavor} moved message id: {newId}", LogColors.DeepChampagne);
         await SendAsync(client, $"{HotmailBlocks.RestApiBase}{deletePath}",
             HttpMethod.Delete, null, token, timeoutCts.Token, data, flavor, deletePath,
             "permanent delete", returnsId: false).ConfigureAwait(false);

@@ -66,6 +66,9 @@ public class DeleteMessageTests
         var req = Assert.Single(await api.WaitForRequestsAsync(1, Wait));
         Assert.Equal("POST", req.Method);
         Assert.Equal("/v1.0/me/messages/msg-2/move", req.Path);
+        // Same ParseForm single-key convention as the Rest test above: a JSON body with
+        // no '&' or '=' is recorded intact as one Form key.
+        Assert.Contains("{\"destinationId\":\"DeletedItems\"}", req.Form.Keys);
     }
 
     // 3. Rest permanent delete is two steps: move first, then DELETE the id the move
@@ -165,5 +168,55 @@ public class DeleteMessageTests
         Assert.Equal($"stub.invalid:{api.Port}", proxy.ConnectTarget);
         var req = Assert.Single(await api.WaitForRequestsAsync(1, Wait));
         Assert.Equal("/api/v2.0/me/messages/msg-1/move", req.Path);
+    }
+
+    // 8. A failed move aborts the permanent sequence before the DELETE: the DELETE would
+    //    target the old id and 404 once the message never moved away.
+    [Fact]
+    public async Task Rest_permanent_delete_aborts_when_the_move_fails()
+    {
+        using var api = new FakeApi();
+        Reset(api.BaseUrl);
+        api.Handler = _ => (500, "{\"error\":{\"code\":\"ErrorMoveFailed\"}}");
+
+        await Assert.ThrowsAsync<HttpRequestException>(() =>
+            HotmailDeleteBlocks.DeleteMessage(NewData(), "Rest", "msg-1", permanent: true));
+
+        Assert.DoesNotContain(api.Requests, r => r.Method == "DELETE");
+    }
+
+    // 9. A 2xx move whose body carries no parseable id aborts the sequence too, rather
+    //    than handing a bogus id to the DELETE.
+    [Fact]
+    public async Task Rest_move_that_returns_no_id_throws_instead_of_handing_a_bogus_id()
+    {
+        using var api = new FakeApi();
+        Reset(api.BaseUrl);
+        api.Handler = _ => (200, "{}");
+
+        var ex = await Assert.ThrowsAsync<HttpRequestException>(() =>
+            HotmailDeleteBlocks.DeleteMessage(NewData(), "Rest", "msg-1", permanent: true));
+
+        Assert.Contains("no string id", ex.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(api.Requests, r => r.Method == "DELETE");
+    }
+
+    // 10. Non-2xx DELETE surfaces as HttpRequestException naming the flavor, the status
+    //     and the body, same as the move failure above.
+    [Fact]
+    public async Task Rest_permanent_delete_surfaces_a_failed_delete_with_the_flavor()
+    {
+        using var api = new FakeApi();
+        Reset(api.BaseUrl);
+        api.Handler = url => url.EndsWith("/move", StringComparison.Ordinal)
+            ? (201, "{\"Id\":\"new-id-1\"}")
+            : (502, "{\"error\":{\"code\":\"ServerError\"}}");
+
+        var ex = await Assert.ThrowsAsync<HttpRequestException>(() =>
+            HotmailDeleteBlocks.DeleteMessage(NewData(), "Rest", "old-id", permanent: true));
+
+        Assert.Contains("Rest", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("502", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("ServerError", ex.Message, StringComparison.Ordinal);
     }
 }
