@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -19,6 +20,11 @@ namespace RuriLib.Blocks.Hotmail;
 public static class HotmailBlocks
 {
     internal static string TokenEndpointBase = "https://login.microsoftonline.com/consumers/oauth2/v2.0/token";
+    // Decommission announced for 03/2024, but live-measured 200/201/204 on consumer accounts
+    // 2026-10-10 (ADR-0002). If it ever shuts off for real, switch configs to api = Graph
+    // per ADR-0001 — no runtime fallback on purpose.
+    internal static string RestApiBase = "https://outlook.office.com/api/v2.0";
+    internal static string GraphApiBase = "https://graph.microsoft.com/v1.0";
     internal static TimeSpan RequestTimeout = TimeSpan.FromSeconds(30);
 
     [Block("Exchanges the refresh token from the input line for an access token",
@@ -91,6 +97,12 @@ public static class HotmailBlocks
     // carries the password and refresh token.
     private static (string RefreshToken, string ClientId) ParseLine(string line)
     {
+        var fields = SplitLine(line);
+        return (fields[2], fields[3]);
+    }
+
+    private static string[] SplitLine(string line)
+    {
         var fields = (line ?? string.Empty).Split(':');
 
         if (fields.Length != 4)
@@ -106,11 +118,75 @@ public static class HotmailBlocks
                 "Every input line field must be non-empty: email:password:refreshToken:clientId.");
         }
 
-        return (fields[2], fields[3]);
+        return fields;
     }
 
+    [Block("Checks the account by calling the mail API once with the exchanged access token",
+        name = "Check Login", id = "HotmailCheckLogin")]
+    public static async Task<Dictionary<string, string>> CheckLogin(BotData data,
+        [BlockParam("api", "API flavor: Rest or Graph")] string api = "Rest")
+    {
+        var fields = SplitLine(data.Line.Data);
+        var flavor = NormalizeFlavor(api);
+
+        // Token cache applies: a second CheckLogin in the same run reuses the token and
+        // still makes its own single mail-API call.
+        var accessToken = await GetToken(data, api).ConfigureAwait(false);
+
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(data.CancellationToken);
+        timeoutCts.CancelAfter(RequestTimeout);
+
+        // Same client/timeout/proxy pattern as GetToken so the check rides the bot's proxy.
+        using var client = HttpFactory.GetHttpClient(data.UseProxy ? data.Proxy : null,
+            new HttpOptions(), new CookieContainer());
+        var path = CheckPath(flavor);
+        using var request = new HttpRequestMessage(HttpMethod.Get,
+            $"{ApiBaseFor(flavor)}{path}");
+        request.Headers.Authorization =
+            new AuthenticationHeaderValue("Bearer", accessToken);
+
+        int status;
+        try
+        {
+            using var response = await client.SendAsync(request, timeoutCts.Token).ConfigureAwait(false);
+            status = (int)response.StatusCode;
+            var content = await response.Content.ReadAsStringAsync(timeoutCts.Token).ConfigureAwait(false);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                // The host maps this exception into run status for config branching, so the
+                // message must name flavor, status, and a truncated body.
+                throw new HttpRequestException(
+                    $"The mail API check for flavor {flavor} failed with status {status}: " +
+                    $"{(string.IsNullOrWhiteSpace(content) ? "(empty body)" : Truncate(content))}");
+            }
+        }
+        catch (OperationCanceledException) when (!data.CancellationToken.IsCancellationRequested)
+        {
+            throw new TimeoutException($"The mail API check for flavor {flavor} timed out.");
+        }
+
+        data.Logger.Log($"{path} {flavor} {status}", LogColors.DeepChampagne);
+        return new Dictionary<string, string>
+        {
+            ["email"] = fields[0],
+            ["password"] = fields[1],
+            ["refreshToken"] = fields[2],
+            ["clientId"] = fields[3],
+        };
+    }
+
+    internal static string ApiBaseFor(string flavor)
+        => flavor == "Rest" ? RestApiBase : GraphApiBase;
+
+    // Rest checks /me (live-verified, ADR-0002). Graph's token only carries Mail.ReadWrite
+    // consent and /me needs User.Read, so the Graph check rides an endpoint the granted
+    // scope does cover (ADR-0001) instead of asking for a wider scope.
+    private static string CheckPath(string flavor)
+        => flavor == "Rest" ? "/me" : "/me/messages?$top=1";
+
     // No auto-probing, no fallback between flavors: ADR-0001.
-    private static string NormalizeFlavor(string api)
+    internal static string NormalizeFlavor(string api)
     {
         if (string.Equals(api, "Rest", StringComparison.OrdinalIgnoreCase))
         {
