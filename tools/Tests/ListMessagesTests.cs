@@ -183,7 +183,9 @@ public class ListMessagesTests
 
     // 9. Pagination: first page carries @odata.nextLink, so the block GETs that absolute URL
     //    too and returns both pages' rows concatenated; the second page omits the link, ending
-    //    the loop (the fake records path only, so a per-call counter separates the two GETs).
+    //    the loop. The handler returns page two only for the ?page=2 URL and the second
+    //    recorded request is asserted to be that URL, so a regression that ignores
+    //    @odata.nextLink and re-GETs the page-one URL cannot pass.
     [Fact]
     public async Task Next_link_pages_until_a_page_omits_it_and_rows_concatenate()
     {
@@ -192,8 +194,9 @@ public class ListMessagesTests
         var pageOne = "{\"value\":[{\"id\":\"msg-1\",\"subject\":\"A\"}]," +
             $"\"@odata.nextLink\":\"http://127.0.0.1:{api.Port}/api/v2.0/me/mailfolders/Inbox/messages?page=2\"}}";
         var pageTwo = "{\"value\":[{\"id\":\"msg-2\",\"subject\":\"B\"}]}";
-        var calls = 0;
-        api.Handler = _ => ++calls == 1 ? (200, pageOne) : (200, pageTwo);
+        api.Handler = url => url.EndsWith("?page=2", StringComparison.Ordinal)
+            ? (200, pageTwo)
+            : (200, pageOne);
 
         BotData data = BotDataFactory.Create(new BotLogger());
         var rows = await HotmailMailBlocks.ListMessages(data);
@@ -204,6 +207,8 @@ public class ListMessagesTests
 
         var reqs = await api.WaitForRequestsAsync(2, Wait);
         Assert.All(reqs, r => Assert.Equal("GET", r.Method));
+        Assert.Equal("/api/v2.0/me/mailfolders/Inbox/messages", reqs[0].Path);
+        Assert.Equal("/api/v2.0/me/mailfolders/Inbox/messages?page=2", reqs[1].Url);
         Assert.Equal("/api/v2.0/me/mailfolders/Inbox/messages", reqs[1].Path);
     }
 }
