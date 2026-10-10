@@ -29,7 +29,7 @@ Ngăn chứa thư trong mailbox, định danh bằng folder id thô hoặc well-
 _Avoid_: mailbox (mailbox là cả tài khoản), thư mục
 
 **Well-known folder name**:
-Tên hộp thư không phụ thuộc ngôn ngữ do Microsoft quy định, dùng trực tiếp trong URL; `all` là quy ước riêng của plugin, nghĩa là mọi hộp thư (giá trị `AllItems` của tài liệu REST v2.0 — mọi thư trong toàn bộ mailbox — không phải một hộp thư).
+Tên hộp thư không phụ thuộc ngôn ngữ do Microsoft quy định, dùng trực tiếp trong URL với casing TitleCase như tài liệu (`Inbox`, `DeletedItems`, `AllItems`); `all` là quy ước riêng của plugin, nghĩa là mọi hộp thư (giá trị `AllItems` của tài liệu REST v2.0 — mọi thư trong toàn bộ mailbox — không phải một hộp thư).
 _Avoid_: tên chuẩn, alias
 
 **Thư** (Message):
@@ -41,7 +41,7 @@ Chuỗi nhận bởi các block thao tác thư: hoặc `id` thô, hoặc nguyên
 _Avoid_: message param, id
 
 **Tệp đính kèm** (Attachment):
-Tệp gắn với thư, thuộc một trong ba loại: `fileAttachment` (bytes thô), `itemAttachment` (MIME của thư/contact/event được đính kèm), `referenceAttachment` (link cloud, không tải được qua `$value`).
+Tệp gắn với thư, thuộc một trong ba loại: `fileAttachment` (bytes thô — Graph tải qua `/$value`, Rest v2.0 qua `ContentBytes` base64 vì tài liệu v2.0 không ghi nhận `/$value`), `itemAttachment` (MIME của thư/contact/event được đính kèm — tải qua `/$value`, được tài liệu ghi nhận trên Graph v1.0), `referenceAttachment` (link cloud, không tải được nội dung — Graph trả HTTP 405 cho `/$value`).
 _Avoid_: attachment file, tệp gửi kèm
 
 **Xoá mềm** (Trash):
@@ -49,7 +49,7 @@ Chuyển thư vào Deleted Items, còn khôi phục được; là hành vi mặc
 _Avoid_: xoá tạm, delete
 
 **Xoá hẳn** (Permanent delete):
-Xoá thư không khôi phục được. Hai đường: `DELETE /me/messages/{id}` trực tiếp trên REST v2.0 (lần đo 2026-10-10 cho thấy xoá hẳn, chưa có tài liệu xác nhận), hoặc trên Graph dùng `POST /me/messages/{id}/permanentDelete` (Microsoft ghi nhận riêng, thư vào purges); trên Graph tài liệu không nói gì về hành vi của `DELETE`. Ngoài ra block xoá thư có cờ `Permanent = true` để chuyển thư vào Deleted Items rồi xoá luôn khỏi đó.
+Xoá thư không khôi phục được. Hai đường: `DELETE /me/messages/{id}` trực tiếp trên REST v2.0 (lần đo 2026-10-10 cho thấy xoá hẳn, chưa có tài liệu xác nhận), hoặc trên Graph dùng `POST /me/messages/{id}/permanentDelete` (Microsoft ghi nhận riêng, thư vào purges); trên Graph tài liệu không nói gì về hành vi của `DELETE`. Ngoài ra block xoá thư có cờ `Permanent = true`: trên Rest — move vào Deleted Items rồi `DELETE` theo id mới (hai request); trên Graph — `POST /me/messages/{id}/permanentDelete` (một request, thư vào purges).
 _Avoid_: xoá vĩnh viễn, hard delete
 
 **Token cache** (— chưa hiện thực):
@@ -59,3 +59,7 @@ _Avoid_: token store, session cache
 **Bot proxy** (— chưa hiện thực):
 Proxy mà config gán cho bot (`data.Proxy` + `data.UseProxy`); host không tự chặn `HttpClient` tùy ý, nên plugin sẽ gọi HTTP qua RuriLib với mẫu `data.UseProxy ? data.Proxy : null` của host — khi đó mọi request, kể cả đổi token, đều đi qua proxy khi bot có proxy.
 _Avoid_: proxy của plugin, network mode
+
+**Quy ước host** (Host conventions):
+Các ràng buộc mã plugin phải tuân theo để host nạp được: block đặt trong namespace `RuriLib.Blocks.<tên plugin>`, tên method là ID block (trừ khi `[Block]` đặt `id` riêng), `name` là tên hiển thị, `[BlockCategory]` nhãn/mô tả cập nhật cho plugin, và tham chiếu duy nhất `RuriLib.dll` với `<Private>false</Private>`.
+_Avoid_: host rules, quy tắc host
