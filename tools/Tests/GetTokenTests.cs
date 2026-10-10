@@ -200,4 +200,83 @@ public class GetTokenTests
         Assert.Equal(GraphScope, req.Form["scope"]);
         Assert.Single(api.Requests);
     }
+
+    // 7. An entry whose ExpiresAt is already in the past is treated as a cache miss:
+    //    TryGetValid returns false and yields no access token.
+    [Fact]
+    public void Expired_entry_is_treated_as_missing_by_TryGetValid()
+    {
+        TokenCache.Tokens.Clear();
+        TokenCache.Set("Rest", "client-id-1", "refresh-token-1",
+            new CachedToken("stale-access-token", DateTimeOffset.UtcNow - TimeSpan.FromSeconds(1)));
+
+        var found = TokenCache.TryGetValid("Rest", "client-id-1", "refresh-token-1", out var accessToken);
+
+        Assert.False(found);
+        Assert.Null(accessToken);
+    }
+
+    // 8. Expiry margin: a token inside the last 60s of its lifetime is invalid, one just
+    //    outside the margin (61s left) is still served.
+    [Fact]
+    public void Token_inside_the_60_second_margin_is_invalid_and_one_just_outside_is_valid()
+    {
+        TokenCache.Tokens.Clear();
+        TokenCache.Set("Rest", "client-id-1", "refresh-inside",
+            new CachedToken("inside-margin-token", DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30)));
+        TokenCache.Set("Rest", "client-id-1", "refresh-outside",
+            new CachedToken("outside-margin-token", DateTimeOffset.UtcNow + TimeSpan.FromSeconds(61)));
+
+        Assert.False(TokenCache.TryGetValid("Rest", "client-id-1", "refresh-inside", out var inside));
+        Assert.Null(inside);
+        Assert.True(TokenCache.TryGetValid("Rest", "client-id-1", "refresh-outside", out var outside));
+        Assert.Equal("outside-margin-token", outside);
+    }
+
+    // 9. Full fresh cache: the 1024th insert trips Tokens.Count >= PruneThreshold with
+    //    nothing expired, so the whole cache is cleared and rebuilt with only the new token.
+    [Fact]
+    public void Full_fresh_cache_is_cleared_and_rebuilt_leaving_only_the_new_token()
+    {
+        TokenCache.Tokens.Clear();
+        var freshExpiry = DateTimeOffset.UtcNow + TimeSpan.FromHours(1);
+        for (var i = 0; i < 1023; i++)
+        {
+            TokenCache.Set("Rest", $"client-{i}", "refresh-1", new CachedToken($"access-{i}", freshExpiry));
+        }
+
+        Assert.Equal(1023, TokenCache.Tokens.Count);
+
+        TokenCache.Set("Rest", "client-new", "refresh-1", new CachedToken("new-token", freshExpiry));
+
+        Assert.Equal(1, TokenCache.Tokens.Count);
+        Assert.True(TokenCache.Tokens.ContainsKey(("Rest", "client-new", "refresh-1")));
+    }
+
+    // 10. Full cache holding expired entries: the threshold insert runs the prune path
+    //     instead — expired entries are removed, fresh ones survive, no clear-and-rebuild.
+    [Fact]
+    public void Full_cache_with_expired_entries_prunes_only_the_expired_ones()
+    {
+        TokenCache.Tokens.Clear();
+        var freshExpiry = DateTimeOffset.UtcNow + TimeSpan.FromHours(1);
+        for (var i = 0; i < 1022; i++)
+        {
+            TokenCache.Set("Rest", $"client-{i}", "refresh-1", new CachedToken($"access-{i}", freshExpiry));
+        }
+
+        TokenCache.Set("Rest", "client-expired", "refresh-1",
+            new CachedToken("stale-token", DateTimeOffset.UtcNow - TimeSpan.FromSeconds(1)));
+
+        Assert.Equal(1023, TokenCache.Tokens.Count);
+
+        TokenCache.Set("Rest", "client-new", "refresh-1", new CachedToken("new-token", freshExpiry));
+
+        // 1022 seeded fresh + the new one survive; the expired entry is gone. A
+        // clear-and-rebuild would instead leave exactly 1 entry.
+        Assert.Equal(1023, TokenCache.Tokens.Count);
+        Assert.False(TokenCache.Tokens.ContainsKey(("Rest", "client-expired", "refresh-1")));
+        Assert.True(TokenCache.Tokens.ContainsKey(("Rest", "client-0", "refresh-1")));
+        Assert.True(TokenCache.Tokens.ContainsKey(("Rest", "client-new", "refresh-1")));
+    }
 }

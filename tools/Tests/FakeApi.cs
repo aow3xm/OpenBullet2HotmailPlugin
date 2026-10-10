@@ -11,12 +11,13 @@ public sealed class FakeApi : IDisposable
     private const string DefaultBody = "{\"access_token\":\"stub-access-token\",\"expires_in\":3600}";
 
     private readonly HttpListener _listener = new();
+    private readonly object _lock = new();
     private readonly List<Request> _requests = new();
     private readonly SemaphoreSlim _signal = new(0);
 
     public string BaseUrl { get; }
     public int Port { get; }
-    public IReadOnlyList<Request> Requests => _requests;
+    public IReadOnlyList<Request> Requests { get { lock (_lock) { return _requests.ToList(); } } }
 
     /// <summary>Script to run for the next request. Takes the request path (no query), returns (status, body).</summary>
     public Func<string, (int Status, string Body)>? Handler { get; set; }
@@ -66,7 +67,10 @@ public sealed class FakeApi : IDisposable
             using var reader = new StreamReader(request.InputStream, request.ContentEncoding);
             formBody = await reader.ReadToEndAsync();
         }
-        _requests.Add(new Request(request.Url!.AbsolutePath, request.HttpMethod, rawHeaders, ParseForm(formBody)));
+        lock (_lock)
+        {
+            _requests.Add(new Request(request.Url!.AbsolutePath, request.HttpMethod, rawHeaders, ParseForm(formBody)));
+        }
         _signal.Release();
 
         int status;
@@ -144,7 +148,10 @@ public sealed class FakeApi : IDisposable
             }
             got++;
         }
-        return _requests.ToList();
+        lock (_lock)
+        {
+            return _requests.ToList();
+        }
     }
 
     public void Dispose() => _listener.Close();

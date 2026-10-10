@@ -124,7 +124,7 @@ public sealed class FakeProxy : IDisposable
             // loopback listener only answers requests for its own host, so rewrite Host.
             var headText = await ReadToBlankLineAsync(stream);
             var rewritten = System.Text.RegularExpressions.Regex.Replace(
-                headText, @"^Host: .*$", $"Host: {connectHost}:{connectPort}",
+                headText, @"^Host: [^\r\n]*", $"Host: {connectHost}:{connectPort}",
                 System.Text.RegularExpressions.RegexOptions.Multiline);
             await originStream.WriteAsync(Encoding.ASCII.GetBytes(rewritten));
         }
