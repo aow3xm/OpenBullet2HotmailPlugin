@@ -22,6 +22,9 @@ public sealed class FakeApi : IDisposable
     /// <summary>Script to run for the next request. Takes the request URL (path and query), returns (status, body).</summary>
     public Func<string, (int Status, string Body)>? Handler { get; set; }
 
+    /// <summary>Raw byte-body script, checked before <see cref="Handler"/> when set; the bytes are written verbatim.</summary>
+    public Func<string, (int Status, byte[] Body)>? ByteHandler { get; set; }
+
     public FakeApi()
     {
         var port = GetFreePort();
@@ -74,17 +77,23 @@ public sealed class FakeApi : IDisposable
         _signal.Release();
 
         int status;
-        string body;
+        byte[] bytes;
         try
         {
-            if (Handler is { } handler)
+            if (ByteHandler is { } byteHandler)
             {
+                (status, bytes) = byteHandler(request.Url.PathAndQuery);
+            }
+            else if (Handler is { } handler)
+            {
+                string body;
                 (status, body) = handler(request.Url.PathAndQuery);
+                bytes = Encoding.UTF8.GetBytes(body);
             }
             else
             {
                 status = 200;
-                body = DefaultBody;
+                bytes = Encoding.UTF8.GetBytes(DefaultBody);
             }
         }
         catch (Exception ex)
@@ -92,10 +101,9 @@ public sealed class FakeApi : IDisposable
             // A scripted handler failure answers 500 instead of leaving the client hanging
             // until its own request timeout expires.
             status = 500;
-            body = ex.Message;
+            bytes = Encoding.UTF8.GetBytes(ex.Message);
         }
 
-        var bytes = Encoding.UTF8.GetBytes(body);
         ctx.Response.StatusCode = status;
         ctx.Response.ContentType = "application/json";
         ctx.Response.ContentLength64 = bytes.Length;

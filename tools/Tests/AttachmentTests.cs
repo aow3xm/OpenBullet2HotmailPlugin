@@ -211,4 +211,46 @@ public class AttachmentTests
         var req = Assert.Single(await api.WaitForRequestsAsync(1, Wait));
         Assert.Equal("/api/v2.0/me/messages/m-1/attachments/a-1", req.Path);
     }
+
+    // 10. Graph fileAttachment with camelCase contentBytes in the detail: decoded in one
+    //     request, never touching /$value (the Graph-side twin of test 1).
+    [Fact]
+    public async Task Graph_file_attachment_decodes_content_bytes_without_a_second_request()
+    {
+        using var api = new FakeApi();
+        Reset(api.BaseUrl, "Graph");
+        api.Handler = _ => (200,
+            "{\"@odata.type\":\"#microsoft.graph.fileAttachment\",\"contentBytes\":\"AAECAwQ=\"}");
+
+        var bytes = await HotmailAttachmentBlocks.DownloadAttachment(NewData(), "Graph",
+            MessageId, AttachmentId);
+
+        Assert.Equal(Convert.FromBase64String("AAECAwQ="), bytes);
+
+        var req = Assert.Single(await api.WaitForRequestsAsync(1, Wait));
+        Assert.Equal("GET", req.Method);
+        Assert.Equal("/v1.0/me/messages/m-1/attachments/a-1", req.Path);
+    }
+
+    // 11. Graph itemAttachment /$value answering with raw non-UTF-8 bytes: the block must
+    //     hand them back untouched, no text round trip that would corrupt them.
+    [Fact]
+    public async Task Graph_value_download_returns_raw_bytes_untouched()
+    {
+        using var api = new FakeApi();
+        Reset(api.BaseUrl, "Graph");
+        var payload = new byte[] { 0x00, 0x80, 0xFF, 0x41, 0x42, 0x43 };
+        api.ByteHandler = url => url.EndsWith("$value", StringComparison.Ordinal)
+            ? (200, payload)
+            : (200, Encoding.UTF8.GetBytes("{\"@odata.type\":\"#microsoft.graph.itemAttachment\"}"));
+
+        var bytes = await HotmailAttachmentBlocks.DownloadAttachment(NewData(), "Graph",
+            MessageId, AttachmentId);
+
+        Assert.Equal(payload, bytes);
+
+        var reqs = await api.WaitForRequestsAsync(2, Wait);
+        Assert.Equal("/v1.0/me/messages/m-1/attachments/a-1", reqs[0].Path);
+        Assert.Equal("/v1.0/me/messages/m-1/attachments/a-1/$value", reqs[1].Path);
+    }
 }

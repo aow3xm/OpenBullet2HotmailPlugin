@@ -82,9 +82,13 @@ public static class HotmailAttachmentBlocks
         }
         else
         {
-            // Graph keeps file content on the separate /$value endpoint.
-            bytes = await GetAsync(client, detailUrl + "/$value", token, timeoutCts.Token,
-                data.CancellationToken, flavor).ConfigureAwait(false);
+            // Graph fileAttachment carries its payload inline when the detail response has
+            // contentBytes: reuse it and skip the second request. Graph may omit it (large
+            // attachments, restricted bodies), then fall back to the /$value endpoint.
+            bytes = content != null
+                ? Convert.FromBase64String(content)
+                : await GetAsync(client, detailUrl + "/$value", token, timeoutCts.Token,
+                    data.CancellationToken, flavor).ConfigureAwait(false);
         }
 
         data.Logger.Log($"{flavor} attachment {aid} {bytes.Length} bytes", LogColors.DeepChampagne);
@@ -122,8 +126,9 @@ public static class HotmailAttachmentBlocks
         }
     }
 
-    // Parses the detail JSON once; both fields may be absent (null). Rest's ContentBytes is
-    // only meaningful for fileAttachment; Graph's detail response may omit it entirely.
+    // Parses the detail JSON once; both fields may be absent (null). The payload is spelled
+    // "ContentBytes" on Rest and camelCase "contentBytes" on Graph, so both casings are tried.
+    // It is only meaningful for fileAttachment; the response may legitimately omit it.
     private static (string Type, string Content) ReadDetail(byte[] detail, string flavor)
     {
         try
@@ -135,7 +140,8 @@ public static class HotmailAttachmentBlocks
                 return (null, null);
             }
 
-            return (ReadString(root, "@odata.type"), ReadString(root, "ContentBytes"));
+            var content = ReadString(root, "ContentBytes") ?? ReadString(root, "contentBytes");
+            return (ReadString(root, "@odata.type"), content);
         }
         catch (JsonException ex)
         {
